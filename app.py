@@ -268,15 +268,23 @@ def worker_check_in():
     industry = request.form.get("industry", "Construction")
     notes = request.form.get("notes", "").strip() or "Shift started via FairShift Worker Portal"
 
-    if not worker_id:
-        flash("Worker identity required to clock in.", "error")
+    conn = database.get_db()
+    worker = None
+    if worker_id:
+        worker = conn.execute("SELECT id, worker_code, industry FROM workers WHERE id = ?", (worker_id,)).fetchone()
+    if not worker and worker_code:
+        worker = conn.execute("SELECT id, worker_code, industry FROM workers WHERE worker_code = ?", (worker_code,)).fetchone()
+
+    if not worker:
+        flash("Worker identity not found in database.", "error")
+        conn.close()
         return redirect(url_for("worker_portal", industry=industry, worker_code=worker_code))
 
-    conn = database.get_db()
+    resolved_id = worker["id"]
     # Check if already clocked in
     existing = conn.execute(
         "SELECT id FROM attendance WHERE worker_id = ? AND check_out IS NULL",
-        (worker_id,)
+        (resolved_id,)
     ).fetchone()
 
     if existing:
@@ -286,12 +294,12 @@ def worker_check_in():
         with conn:
             conn.execute(
                 "INSERT INTO attendance (worker_id, check_in, notes, is_demo) VALUES (?, ?, ?, 0)",
-                (worker_id, now_dt, notes)
+                (resolved_id, now_dt, notes)
             )
         flash(f"Check-in recorded at {now_dt}. Have a safe shift!", "success")
 
     conn.close()
-    return redirect(url_for("worker_portal", industry=industry, worker_code=worker_code))
+    return redirect(url_for("worker_portal", industry=industry, worker_code=worker["worker_code"]))
 
 
 @app.route("/worker/check-out", methods=["POST"])
@@ -369,6 +377,18 @@ def worker_manual_entry():
         return redirect(url_for("worker_portal", industry=industry, worker_code=worker_code))
 
     conn = database.get_db()
+    worker = None
+    if worker_id:
+        worker = conn.execute("SELECT id, worker_code FROM workers WHERE id = ?", (worker_id,)).fetchone()
+    if not worker and worker_code:
+        worker = conn.execute("SELECT id, worker_code FROM workers WHERE worker_code = ?", (worker_code,)).fetchone()
+
+    if not worker:
+        flash("Worker profile not found.", "error")
+        conn.close()
+        return redirect(url_for("worker_portal", industry=industry, worker_code=worker_code))
+
+    resolved_id = worker["id"]
     settings = get_system_settings(conn)
     daily_threshold = settings["daily_overtime_threshold"]
     overtime_hours = max(0.0, round(hours - daily_threshold, 2))
@@ -382,11 +402,11 @@ def worker_manual_entry():
         conn.execute("""
             INSERT INTO attendance (worker_id, check_in, check_out, total_hours, overtime_hours, notes, is_demo)
             VALUES (?, ?, ?, ?, ?, ?, 0)
-        """, (worker_id, check_in_str, check_out_str, hours, overtime_hours, notes))
+        """, (resolved_id, check_in_str, check_out_str, hours, overtime_hours, notes))
 
     flash(f"Manual shift logged successfully: {hours} hours (Overtime: {overtime_hours}h).", "success")
     conn.close()
-    return redirect(url_for("worker_portal", industry=industry, worker_code=worker_code))
+    return redirect(url_for("worker_portal", industry=industry, worker_code=worker["worker_code"]))
 
 
 @app.route("/worker/report-hazard", methods=["POST"])
@@ -409,9 +429,18 @@ def report_hazard():
         return redirect(url_for("worker_portal", industry=industry, worker_code=worker_code))
 
     ref_no = database.generate_reference_no(industry)
-    effective_worker_id = None if is_anonymous else worker_id
+    effective_worker_id = None
 
     conn = database.get_db()
+    if not is_anonymous:
+        worker = None
+        if worker_id:
+            worker = conn.execute("SELECT id FROM workers WHERE id = ?", (worker_id,)).fetchone()
+        if not worker and worker_code:
+            worker = conn.execute("SELECT id FROM workers WHERE worker_code = ?", (worker_code,)).fetchone()
+        if worker:
+            effective_worker_id = worker["id"]
+
     with conn:
         conn.execute("""
             INSERT INTO safety_reports (
@@ -444,11 +473,21 @@ def submit_feedback():
         return redirect(url_for("worker_portal", industry=industry, worker_code=worker_code))
 
     conn = database.get_db()
+    effective_worker_id = None
+    if worker_id:
+        worker = conn.execute("SELECT id FROM workers WHERE id = ?", (worker_id,)).fetchone()
+        if worker:
+            effective_worker_id = worker["id"]
+    if not effective_worker_id and worker_code:
+        worker = conn.execute("SELECT id FROM workers WHERE worker_code = ?", (worker_code,)).fetchone()
+        if worker:
+            effective_worker_id = worker["id"]
+
     with conn:
         conn.execute("""
             INSERT INTO feedback (worker_id, is_anonymous, industry, category, feedback_text)
             VALUES (?, 1, ?, ?, ?)
-        """, (worker_id, industry, category, feedback_text))
+        """, (effective_worker_id, industry, category, feedback_text))
     conn.close()
 
     flash(

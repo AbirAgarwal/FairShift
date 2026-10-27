@@ -124,12 +124,15 @@ def seed_demo_data(conn=None):
         close_after = True
 
     with conn:
-        # Clear existing demo data
         conn.execute("DELETE FROM feedback")
         conn.execute("DELETE FROM skills")
         conn.execute("DELETE FROM safety_reports")
         conn.execute("DELETE FROM attendance")
         conn.execute("DELETE FROM workers")
+        try:
+            conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('workers', 'attendance', 'safety_reports', 'skills', 'feedback')")
+        except sqlite3.OperationalError:
+            pass
 
         demo_workers = [
             # Construction Industry
