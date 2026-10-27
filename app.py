@@ -14,6 +14,7 @@ from flask import (
 import database
 
 app = Flask(__name__)
+application = app  # WSGI compatibility alias for Vercel and serverless runners
 app.secret_key = os.environ.get("SECRET_KEY", "fairshift-hackathon-secure-key-2026")
 
 # Enforce secure cookie settings in production environments
@@ -714,8 +715,23 @@ def server_error(e):
     return render_template("base.html", error_message="An internal server error occurred."), 500
 
 
-# Automatically ensure DB tables and seed data upon startup
-database.init_db()
+# Ensure DB tables and seed data upon startup with graceful fallback
+try:
+    database.init_db()
+except Exception as e:
+    import logging
+    logging.warning("Initial database startup deferred: %s", e)
+
+
+@app.before_request
+def ensure_db_ready():
+    """Ensure database schema and seed data are ready before processing requests."""
+    if not getattr(app, "_db_initialized", False):
+        try:
+            database.init_db()
+            app._db_initialized = True
+        except Exception as e:
+            app.logger.error("Database request init error: %s", e)
 
 
 if __name__ == "__main__":

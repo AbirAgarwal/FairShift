@@ -6,14 +6,47 @@ Provides SQLite connection management, schema initialization, and demo data seed
 import sqlite3
 import os
 import random
+import tempfile
 from datetime import datetime, timedelta
 
-DB_PATH = os.environ.get("FAIRSHIFT_DB_PATH", "fairshift.db")
+DB_PATH = None
+
+
+def get_db_path():
+    """
+    Determine the active SQLite database path.
+    In serverless environments (e.g. Vercel, AWS Lambda), the deployment root is read-only.
+    The database must be located in /tmp (the only writable directory).
+    """
+    global DB_PATH
+    if DB_PATH:
+        return DB_PATH
+
+    explicit = os.environ.get("FAIRSHIFT_DB_PATH")
+    if explicit:
+        return explicit
+
+    # Serverless runtime detection (Vercel, AWS Lambda, Google Cloud Functions)
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        tmp_dir = "/tmp" if os.path.exists("/tmp") else tempfile.gettempdir()
+        return os.path.join(tmp_dir, "fairshift.db")
+
+    # Local / container environment: verify current directory is writable
+    try:
+        test_file = ".__writable_check__"
+        with open(test_file, "w") as f:
+            f.write("1")
+        os.remove(test_file)
+        return "fairshift.db"
+    except (OSError, PermissionError):
+        tmp_dir = "/tmp" if os.path.exists("/tmp") else tempfile.gettempdir()
+        return os.path.join(tmp_dir, "fairshift.db")
 
 
 def get_db():
     """Get a database connection configured with Row factory."""
-    conn = sqlite3.connect(DB_PATH)
+    path = get_db_path()
+    conn = sqlite3.connect(path, timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
