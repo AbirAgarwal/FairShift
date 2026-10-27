@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+
+{% block title %}Employer Dashboard — FairShift{% endblock %}
+
+{% block content %}
+<!-- Admin Dashboard Header Banner -->
+<div class="fairness-banner" style="border-left-color: #6366f1;">
+  <div>
+    <div class="fairness-title">
+      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+      Workforce Safety & Compliance Dashboard
+    </div>
+    <div class="fairness-desc">
+      Real-time oversight of shift compliance, transparent overtime tracking, fatigue mitigation, and hazard resolution.
+    </div>
+  </div>
+  <div>
+    <span class="demo-pill">Employer / Site Leadership View</span>
+  </div>
+</div>
+
+<!-- Industry Filter Bar -->
+<div class="industry-bar">
+  <div style="font-size: 0.9rem; font-weight: 600; color: #475569;">
+    Filter by Sector:
+  </div>
+  <div class="industry-selector">
+    <a href="{{ url_for('admin_dashboard', industry='All') }}"
+       class="btn-industry {% if industry_filter == 'All' %}active-all{% endif %}">
+      🌐 All Industries
+    </a>
+    <a href="{{ url_for('admin_dashboard', industry='Construction') }}"
+       class="btn-industry {% if industry_filter == 'Construction' %}active-construction{% endif %}">
+      🏗️ Construction Trades
+    </a>
+    <a href="{{ url_for('admin_dashboard', industry='College') }}"
+       class="btn-industry {% if industry_filter == 'College' %}active-college{% endif %}">
+      🎓 College & Educational Support
+    </a>
+  </div>
+  <div>
+    <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('settings-panel').style.display = document.getElementById('settings-panel').style.display === 'none' ? 'block' : 'none'">
+      ⚙️ Configure Safety Thresholds
+    </button>
+  </div>
+</div>
+
+<!-- Configurable Thresholds Panel (Hidden by default, toggleable) -->
+<div id="settings-panel" style="display: none; background: #ffffff; border: 1px solid #cbd5e1; border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+    <h4 style="font-size: 1rem; font-weight: 700; color: #1e293b;">Workforce Policy & Fatigue Threshold Settings</h4>
+    <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('settings-panel').style.display='none'">Close</button>
+  </div>
+  <p style="font-size: 0.825rem; color: #64748b; margin-bottom: 1rem;">
+    Adjusting these values dynamically updates overtime flags and fatigue risk warnings across all shifts.
+  </p>
+  <form action="{{ url_for('update_settings') }}" method="POST">
+    <input type="hidden" name="industry_filter" value="{{ industry_filter }}">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="daily_overtime_threshold">Standard Daily Shift Limit (Hours)</label>
+        <input type="number" step="0.5" min="1" max="16" name="daily_overtime_threshold" id="daily_overtime_threshold" value="{{ settings.daily_overtime_threshold }}" required>
+        <span style="font-size: 0.75rem; color: #64748b;">Hours exceeding this qualify for overtime pay</span>
+      </div>
+      <div class="form-group">
+        <label for="fatigue_warning_threshold">Fatigue Risk Alert Trigger (Hours)</label>
+        <input type="number" step="0.5" min="4" max="24" name="fatigue_warning_threshold" id="fatigue_warning_threshold" value="{{ settings.fatigue_warning_threshold }}" required>
+        <span style="font-size: 0.75rem; color: #64748b;">Single shift hours triggering high fatigue alert</span>
+      </div>
+      <div class="form-group">
+        <label for="overtime_rate_multiplier">Overtime Pay Rate Multiplier</label>
+        <input type="number" step="0.1" min="1.0" max="3.0" name="overtime_rate_multiplier" id="overtime_rate_multiplier" value="{{ settings.overtime_rate_multiplier }}" required>
+        <span style="font-size: 0.75rem; color: #64748b;">Standard multiplier (typically 1.5x)</span>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Save & Apply Thresholds</button>
+  </form>
+</div>
+
+<!-- 5 Top Metric KPI Cards -->
+<div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
+  
+  <div class="metric-card">
+    <div class="metric-header">
+      <span>Workforce Tracked</span>
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    </div>
+    <div class="metric-value">{{ total_workers_count }}</div>
+    <div class="metric-subtext">Active verified staff profiles</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <span>Shifts Logged</span>
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      </svg>
+    </div>
+    <div class="metric-value">{{ total_shifts_count }}</div>
+    <div class="metric-subtext">Verified attendance shifts</div>
+  </div>
+
+  <div class="metric-card warning">
+    <div class="metric-header">
+      <span>Overtime Logged</span>
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #f59e0b;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    </div>
+    <div class="metric-value" style="color: #d97706;">{{ total_overtime_hours }}h</div>
+    <div class="metric-subtext">>{{ settings.daily_overtime_threshold }}h/day differential compensated</div>
+  </div>
+
+  <div class="metric-card danger">
+    <div class="metric-header">
+      <span>Open Hazards</span>
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #e11d48;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    </div>
+    <div class="metric-value" style="color: #e11d48;">
+      {{ open_hazards_count }}
+      {% if critical_hazards_count > 0 %}
+        <span class="badge badge-critical" style="font-size: 0.75rem; vertical-align: middle;">{{ critical_hazards_count }} Critical</span>
+      {% endif %}
+    </div>
+    <div class="metric-subtext">Active site risk reports</div>
+  </div>
+
+  <div class="metric-card warning">
+    <div class="metric-header">
+      <span>Fatigue Alerts</span>
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #f59e0b;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    </div>
+    <div class="metric-value" style="color: #d97706;">{{ fatigue_alerts | length }}</div>
+    <div class="metric-subtext">Workers exceeding safe duration</div>
+  </div>
+
+</div>
+
+<!-- Fatigue & Overtime Risk Center with Explicit Evidence -->
+<div class="card" style="border-top: 4px solid #f59e0b;">
+  <div class="card-header">
+    <h3>
+      <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #f59e0b;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      Fatigue & Overtime Warning Center — Evidence & Mitigation
+    </h3>
+    <span class="badge badge-warning">Proactive Hazard Prevention</span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Industry & Role</th>
+            <th>Date</th>
+            <th>Duration</th>
+            <th>Risk Level</th>
+            <th>Clear Evidence & Root Cause</th>
+            <th>Recommended Mitigation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if fatigue_alerts %}
+            {% for alert in fatigue_alerts %}
+              <tr>
+                <td>
+                  <strong>{{ alert.full_name }}</strong><br>
+                  <span class="ref-code" style="font-size: 0.75rem;">{{ alert.worker_code }}</span>
+                </td>
+                <td>
+                  <span class="badge {% if alert.industry == 'Construction' %}badge-construction{% else %}badge-college{% endif %}">
+                    {{ alert.industry }}
+                  </span><br>
+                  <span style="font-size: 0.8rem; color: #64748b;">{{ alert.role_title }}</span>
+                </td>
+                <td>{{ alert.date }}</td>
+                <td><strong style="font-size: 1.05rem;">{{ alert.hours }}h</strong></td>
+                <td>
+                  <span class="badge {{ alert.fatigue.badge_class }}">
+                    {{ alert.fatigue.label }}
+                  </span>
+                </td>
+                <td style="max-width: 320px;">
+                  <div class="evidence-box {% if alert.fatigue.level == 'critical' %}critical{% endif %}">
+                    <strong>Evidence:</strong> {{ alert.fatigue.evidence }}
+                  </div>
+                </td>
+                <td style="font-size: 0.825rem; color: #1e293b; max-width: 240px;">
+                  {{ alert.fatigue.recommendation }}
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2rem; color: #10b981;">
+                ✓ No workers currently exceed overtime or fatigue thresholds. All shifts comply with safe hours.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Safety Hazard Reports Management Table -->
+<div class="card" style="border-top: 4px solid #e11d48;">
+  <div class="card-header">
+    <h3>
+      <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #e11d48;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Safety Hazard Ticket Management (Active Incident Queue)
+    </h3>
+    <span class="badge badge-info">{{ hazard_reports | length }} Total Reports</span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Ref #</th>
+            <th>Industry & Category</th>
+            <th>Severity</th>
+            <th>Location & Description</th>
+            <th>Reporter Protection</th>
+            <th>Date Reported</th>
+            <th>Status & Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if hazard_reports %}
+            {% for r in hazard_reports %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('track_report', reference_no=r.reference_no) }}" class="ref-code" title="View tracking record">
+                    {{ r.reference_no }}
+                  </a>
+                </td>
+                <td>
+                  <span class="badge {% if r.industry == 'Construction' %}badge-construction{% else %}badge-college{% endif %}">
+                    {{ r.industry }}
+                  </span><br>
+                  <strong style="font-size: 0.85rem;">{{ r.category }}</strong>
+                </td>
+                <td>
+                  <span class="badge {% if r.severity == 'Critical' %}badge-critical{% elif r.severity == 'High' %}badge-danger{% elif r.severity == 'Medium' %}badge-warning{% else %}badge-info{% endif %}">
+                    {{ r.severity }}
+                  </span>
+                </td>
+                <td style="max-width: 320px;">
+                  <div style="font-weight: 600; font-size: 0.85rem; color: #1e293b;">📍 {{ r.location }}</div>
+                  <div style="font-size: 0.825rem; color: #475569; margin-top: 0.2rem;">{{ r.description }}</div>
+                  {% if r.admin_notes %}
+                    <div style="font-size: 0.775rem; color: #0284c7; background: #e0f2fe; padding: 0.3rem 0.5rem; border-radius: 4px; margin-top: 0.35rem;">
+                      <strong>Action:</strong> {{ r.admin_notes }}
+                    </div>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if r.is_anonymous %}
+                    <span class="badge badge-anonymous">
+                      🔒 Anonymous Worker
+                    </span>
+                    <div style="font-size: 0.725rem; color: #7e22ce; margin-top: 0.2rem;">Protected from retaliation</div>
+                  {% else %}
+                    <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">
+                      {{ r.full_name or 'Staff Member' }}
+                    </span>
+                    <div style="font-size: 0.725rem; color: #64748b;">{{ r.worker_code }}</div>
+                  {% endif %}
+                </td>
+                <td style="font-size: 0.8rem; color: #64748b; white-space: nowrap;">
+                  {{ r.created_at[:10] }}
+                </td>
+                <td style="min-width: 220px;">
+                  <form action="{{ url_for('update_report_status', report_id=r.id) }}" method="POST" style="display: flex; flex-direction: column; gap: 0.35rem;">
+                    <input type="hidden" name="industry_filter" value="{{ industry_filter }}">
+                    <div style="display: flex; gap: 0.35rem;">
+                      <select name="status" style="padding: 0.35rem 0.5rem; font-size: 0.8rem;">
+                        <option value="Open" {% if r.status == 'Open' %}selected{% endif %}>Open</option>
+                        <option value="Under Review" {% if r.status == 'Under Review' %}selected{% endif %}>Under Review</option>
+                        <option value="Resolved" {% if r.status == 'Resolved' %}selected{% endif %}>Resolved</option>
+                      </select>
+                      <button type="submit" class="btn btn-outline btn-sm">Save</button>
+                    </div>
+                    <input type="text" name="admin_notes" value="{{ r.admin_notes or '' }}" placeholder="Add mitigation action taken..." style="font-size: 0.75rem; padding: 0.3rem 0.5rem;">
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2rem; color: #94a3b8;">
+                No safety hazards recorded for this filter.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Attendance Shift Ledger Table -->
+<div class="card">
+  <div class="card-header">
+    <h3>
+      <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #3b82f6;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      Workforce Attendance & Shift Ledger
+    </h3>
+    <span class="badge badge-info">{{ attendance_records | length }} Shifts</span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Worker ID & Name</th>
+            <th>Industry</th>
+            <th>Check-In</th>
+            <th>Check-Out</th>
+            <th>Hours Logged</th>
+            <th>Overtime</th>
+            <th>Shift Safety Status</th>
+            <th>Work Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if attendance_records %}
+            {% for item in attendance_records %}
+              <tr>
+                <td>
+                  <strong>{{ item.record.full_name }}</strong><br>
+                  <span class="ref-code" style="font-size: 0.75rem;">{{ item.record.worker_code }}</span>
+                </td>
+                <td>
+                  <span class="badge {% if item.record.industry == 'Construction' %}badge-construction{% else %}badge-college{% endif %}">
+                    {{ item.record.industry }}
+                  </span>
+                </td>
+                <td>{{ item.record.check_in | datetime_format("%b %d, %I:%M %p") }}</td>
+                <td>{{ item.record.check_out | datetime_format("%b %d, %I:%M %p") }}</td>
+                <td><strong>{{ item.record.total_hours }}h</strong></td>
+                <td>
+                  {% if item.record.overtime_hours > 0 %}
+                    <span class="badge badge-warning">+{{ item.record.overtime_hours }}h OT</span>
+                  {% else %}
+                    <span style="color: #94a3b8;">0.0h</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge {{ item.fatigue.badge_class }}">
+                    {{ item.fatigue.label }}
+                  </span>
+                </td>
+                <td style="font-size: 0.8rem; color: #64748b; max-width: 240px;">
+                  {{ item.record.notes or 'Shift completed' }}
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 2rem; color: #94a3b8;">
+                No attendance shifts logged for this selection.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Anonymous Worker Voice Feed -->
+<div class="card">
+  <div class="card-header">
+    <h3>
+      <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #8b5cf6;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+      Anonymous Worker Voice & Pulse Feed
+    </h3>
+    <span class="badge badge-anonymous">Protected & Anonymized</span>
+  </div>
+  <div class="card-body">
+    <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.25rem;">
+      Unfiltered feedback submitted by workforce staff. Worker identities are cryptographically unlinked to prevent retaliation.
+    </p>
+
+    {% if feedback_records %}
+      <div class="feedback-grid">
+        {% for fb in feedback_records %}
+          <div class="feedback-card">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span class="badge {% if fb.industry == 'Construction' %}badge-construction{% else %}badge-college{% endif %}">
+                  {{ fb.industry }}
+                </span>
+                <span class="badge badge-info" style="font-size: 0.7rem;">
+                  {{ fb.category }}
+                </span>
+              </div>
+              <p class="feedback-quote">"{{ fb.feedback_text }}"</p>
+            </div>
+            <div class="feedback-footer">
+              <span>🔒 Verified Anonymous Worker</span>
+              <span>{{ fb.created_at[:10] }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="color: #94a3b8; font-size: 0.875rem;">No feedback submissions recorded yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

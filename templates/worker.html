@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+
+{% block title %}Worker Portal — FairShift{% endblock %}
+
+{% block content %}
+<!-- Fairness Overview Banner -->
+<div class="fairness-banner">
+  <div>
+    <div class="fairness-title">
+      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+      FairShift Worker Portal
+    </div>
+    <div class="fairness-desc">
+      Empowering workers with transparent wage calculations, verified skill records, and retaliation-free hazard reporting.
+    </div>
+  </div>
+  <div>
+    <span class="demo-pill">Simulated Demo Worker Mode</span>
+  </div>
+</div>
+
+<!-- Industry Selection Bar -->
+<div class="industry-bar">
+  <div style="font-size: 0.9rem; font-weight: 600; color: #475569;">
+    Select Industry Sector:
+  </div>
+  <div class="industry-selector">
+    <a href="{{ url_for('worker_portal', industry='Construction') }}"
+       class="btn-industry {% if industry_filter == 'Construction' %}active-construction{% endif %}">
+      🏗️ Construction Trades
+    </a>
+    <a href="{{ url_for('worker_portal', industry='College') }}"
+       class="btn-industry {% if industry_filter == 'College' %}active-college{% endif %}">
+      🎓 College & Educational Support Staff
+    </a>
+  </div>
+</div>
+
+<!-- Active Worker Profile Card & Switcher -->
+<div class="worker-identity-card">
+  <div class="worker-profile">
+    <div class="worker-avatar {% if industry_filter == 'Construction' %}construction{% else %}college{% endif %}">
+      {{ current_worker.full_name[:1] if current_worker else 'W' }}
+    </div>
+    <div class="worker-details">
+      <h2>
+        {{ current_worker.full_name if current_worker else 'Select a Worker' }}
+        <span class="ref-code">{{ current_worker.worker_code }}</span>
+      </h2>
+      <p>{{ current_worker.role_title }} &bull; Base Wage: <strong>{{ current_worker.hourly_rate | currency }}/hr</strong></p>
+      <div class="worker-badges">
+        <span class="badge {% if industry_filter == 'Construction' %}badge-construction{% else %}badge-college{% endif %}">
+          {{ current_worker.industry }}
+        </span>
+        <span class="badge badge-info">ID: {{ current_worker.worker_code }}</span>
+      </div>
+    </div>
+  </div>
+
+  <form method="GET" action="{{ url_for('worker_portal') }}" class="worker-switcher-form">
+    <input type="hidden" name="industry" value="{{ industry_filter }}">
+    <label for="worker_code_select" style="margin: 0; font-size: 0.825rem; white-space: nowrap;">Switch Demo Worker:</label>
+    <select name="worker_code" id="worker_code_select" onchange="this.form.submit()" style="width: auto; padding: 0.45rem 0.75rem;">
+      {% for w in industry_workers %}
+        <option value="{{ w.worker_code }}" {% if current_worker and current_worker.worker_code == w.worker_code %}selected{% endif %}>
+          {{ w.worker_code }} — {{ w.full_name }} ({{ w.role_title[:24] }}...)
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<!-- Shift Check-In / Check-Out Action Banner -->
+<div class="active-shift-box">
+  <div>
+    <div class="active-shift-status">
+      {% if active_shift %}
+        <div class="status-indicator"></div>
+        <div>
+          <h3 style="font-size: 1.15rem; font-weight: 700;">Shift Currently Active</h3>
+          <p style="font-size: 0.85rem; color: #cbd5e1; margin-top: 0.2rem;">
+            Clocked in on <strong>{{ active_shift.check_in | datetime_format }}</strong>
+            {% if active_shift.notes %}&bull; <em>"{{ active_shift.notes }}"</em>{% endif %}
+          </p>
+        </div>
+      {% else %}
+        <div class="status-indicator inactive"></div>
+        <div>
+          <h3 style="font-size: 1.15rem; font-weight: 700;">Not Currently Clocked In</h3>
+          <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 0.2rem;">
+            Ready to log your scheduled work shift with accurate timestamping.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    {% if active_shift %}
+      <!-- Clock Out Form -->
+      <form action="{{ url_for('worker_check_out') }}" method="POST" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <input type="hidden" name="attendance_id" value="{{ active_shift.id }}">
+        <input type="hidden" name="worker_code" value="{{ current_worker.worker_code }}">
+        <input type="hidden" name="industry" value="{{ industry_filter }}">
+        
+        <input type="text" name="notes" placeholder="Shift completion notes / tasks performed" style="max-width: 260px; padding: 0.55rem 0.75rem; background: #0f172a; color: #fff; border-color: #475569;">
+        
+        <!-- Quick hackathon demo helper to simulate a completed shift duration -->
+        <select name="simulated_hours" title="Demo Shift Duration" style="width: auto; padding: 0.55rem; background: #0f172a; color: #fff; border-color: #475569;">
+          <option value="">Live Duration</option>
+          <option value="8.0">Simulate 8.0h (Standard)</option>
+          <option value="9.5">Simulate 9.5h (1.5h Overtime)</option>
+          <option value="11.5">Simulate 11.5h (Fatigue Alert)</option>
+        </select>
+
+        <button type="submit" class="btn btn-danger btn-lg">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Clock Out & Complete Shift
+        </button>
+      </form>
+    {% else %}
+      <!-- Clock In Form -->
+      <form action="{{ url_for('worker_check_in') }}" method="POST" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+        <input type="hidden" name="worker_id" value="{{ current_worker.id }}">
+        <input type="hidden" name="worker_code" value="{{ current_worker.worker_code }}">
+        <input type="hidden" name="industry" value="{{ industry_filter }}">
+        
+        <input type="text" name="notes" placeholder="Site location or task (e.g., East Tower / Lab 304)" style="max-width: 280px; padding: 0.55rem 0.75rem; background: #0f172a; color: #fff; border-color: #475569;">
+        
+        <button type="submit" class="btn btn-success btn-lg">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+          </svg>
+          Clock In for Shift
+        </button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 2-Column Section: Salary Engine & Hazard Reporting -->
+<div class="grid-2">
+
+  <!-- Transparent Salary Calculator Card -->
+  <div class="card">
+    <div class="card-header">
+      <h3>
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #10b981;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Transparent Salary Calculator
+      </h3>
+      <span class="badge badge-success">Fairness Guaranteed</span>
+    </div>
+    <div class="card-body">
+      <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">
+        No hidden deductions or withheld overtime differentials. Modify hours below to recalculate estimated pay.
+      </p>
+
+      <form method="GET" action="{{ url_for('worker_portal') }}" style="margin-bottom: 1.25rem;">
+        <input type="hidden" name="industry" value="{{ industry_filter }}">
+        <input type="hidden" name="worker_code" value="{{ current_worker.worker_code }}">
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="calc_base">Base Hours</label>
+            <input type="number" step="0.5" min="0" name="calc_base" id="calc_base" value="{{ salary_breakdown.base_hours }}" required>
+          </div>
+          <div class="form-group">
+            <label for="calc_rate">Hourly Base Wage ($)</label>
+            <input type="number" step="0.25" min="0" name="calc_rate" id="calc_rate" value="{{ salary_breakdown.hourly_rate }}" required>
+          </div>
+          <div class="form-group">
+            <label for="calc_ot">Overtime Hours</label>
+            <input type="number" step="0.5" min="0" name="calc_ot" id="calc_ot" value="{{ salary_breakdown.overtime_hours }}" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-sm">
+          Recalculate Estimate
+        </button>
+      </form>
+
+      <!-- Salary Breakdown Statement -->
+      <div class="breakdown-box">
+        <div class="breakdown-line">
+          <span>Standard Hours ({{ salary_breakdown.base_hours }} hrs &times; {{ salary_breakdown.hourly_rate | currency }}/hr)</span>
+          <strong>{{ salary_breakdown.regular_pay | currency }}</strong>
+        </div>
+        <div class="breakdown-line">
+          <span>
+            Overtime Pay ({{ salary_breakdown.overtime_hours }} hrs &times; 1.5x [{{ salary_breakdown.overtime_rate | currency }}/hr])
+          </span>
+          <strong style="color: #059669;">+ {{ salary_breakdown.overtime_pay | currency }}</strong>
+        </div>
+        <div class="breakdown-line total">
+          <span>Estimated Total Gross Earnings</span>
+          <span style="color: #2563eb;">{{ salary_breakdown.gross_pay | currency }}</span>
+        </div>
+        <div class="disclaimer-text">
+          <strong>Transparency Notice:</strong> {{ salary_breakdown.disclaimer }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Retaliation-Free Safety Hazard Reporting -->
+  <div class="card">
+    <div class="card-header">
+      <h3>
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #e11d48;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        Report a Safety Hazard
+      </h3>
+      <span class="badge badge-danger">Retaliation-Protected</span>
+    </div>
+    <div class="card-body">
+      <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">
+        Speak up without fear. Reports receive a tamper-evident tracking code and can be filed 100% anonymously.
+      </p>
+
+      <form action="{{ url_for('report_hazard') }}" method="POST">
+        <input type="hidden" name="worker_id" value="{{ current_worker.id }}">
+        <input type="hidden" name="worker_code" value="{{ current_worker.worker_code }}">
+        <input type="hidden" name="industry" value="{{ industry_filter }}">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="category">Hazard Category *</label>
+            <select name="category" id="category" required>
+              {% if industry_filter == 'Construction' %}
+                <option value="Unsafe Scaffolding">Unsafe Scaffolding / Fall Hazard</option>
+                <option value="Equipment Malfunction">Heavy Equipment Malfunction</option>
+                <option value="Electrical Hazard">Electrical & Grounding Hazard</option>
+                <option value="Lack of PPE">Missing PPE (Harness, Helmet, Goggles)</option>
+                <option value="Trenching & Excavation">Trench / Excavation Instability</option>
+                <option value="Chemical & Silica Dust">Silica Dust / Hazardous Materials</option>
+                <option value="Other">Other Construction Hazard</option>
+              {% else %}
+                <option value="Chemical Exposure / Fume Hood">Chemical Fume Hood / Lab Exhaust</option>
+                <option value="Slip / Trip Hazard">Floor Spills & Slip Hazard</option>
+                <option value="Equipment Malfunction">HVAC / Kitchen Machinery Failure</option>
+                <option value="Lack of PPE / Equipment">Missing Gloves / Protective Gear</option>
+                <option value="Electrical & Lighting">Dark Walkway / Electrical Fixture</option>
+                <option value="Biohazard Waste">Biological / Biohazard Disposal</option>
+                <option value="Other">Other Campus Support Hazard</option>
+              {% endif %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="severity">Severity Assessment *</label>
+            <select name="severity" id="severity" required>
+              <option value="Low">Low — Minor disruption, non-urgent</option>
+              <option value="Medium" selected>Medium — Requires inspection</option>
+              <option value="High">High — Serious injury risk if unaddressed</option>
+              <option value="Critical">Critical — Immediate life safety danger</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="location">Exact Hazard Location *</label>
+          <input type="text" name="location" id="location" placeholder="e.g. Building B Level 4 East Scaffold OR Curie Hall Chemistry Lab 304" required>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Detailed Description of Condition *</label>
+          <textarea name="description" id="description" placeholder="Describe the hazard clearly: what is broken, loose, leaking, or missing?" required></textarea>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" name="is_anonymous" id="is_anonymous" checked>
+          <label for="is_anonymous">
+            <strong>Shield My Identity</strong> &mdash; Submit as Anonymous Worker (Identity is not linked or disclosed to supervisors)
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-danger" style="width: 100%; margin-top: 0.5rem;">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+          Submit Hazard Report & Generate Tracking Code
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<!-- Attendance Shift History Section -->
+<div class="card">
+  <div class="card-header">
+    <h3>
+      <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #3b82f6;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Recorded Attendance History & Fatigue Auditing
+    </h3>
+    <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('manual-shift-modal').style.display='block'">
+      + Log Completed Shift Manually
+    </button>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Shift Date</th>
+            <th>Check-In</th>
+            <th>Check-Out</th>
+            <th>Total Hours</th>
+            <th>Overtime</th>
+            <th>Fatigue / Rest Assessment</th>
+            <th>Notes & Tasks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if attendance_history %}
+            {% for item in attendance_history %}
+              <tr>
+                <td><strong>{{ item.record.check_in[:10] }}</strong></td>
+                <td>{{ item.record.check_in | datetime_format("%I:%M %p") }}</td>
+                <td>{{ item.record.check_out | datetime_format("%I:%M %p") }}</td>
+                <td><strong>{{ item.record.total_hours }}h</strong></td>
+                <td>
+                  {% if item.record.overtime_hours > 0 %}
+                    <span class="badge badge-warning">+{{ item.record.overtime_hours }}h OT</span>
+                  {% else %}
+                    <span style="color: #94a3b8;">0.0h</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge {{ item.fatigue.badge_class }}">
+                    {{ item.fatigue.label }}
+                  </span>
+                  {% if item.fatigue.level != 'normal' %}
+                    <div class="evidence-box {% if item.fatigue.level == 'critical' %}critical{% endif %}">
+                      {{ item.fatigue.evidence }}
+                    </div>
+                  {% endif %}
+                </td>
+                <td style="color: #64748b; font-size: 0.85rem;">
+                  {{ item.record.notes or 'Routine shift' }}
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2rem; color: #94a3b8;">
+                No shift history recorded yet for this worker profile. Clock in above or log a shift.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Manual Shift Log Modal/Drawer (Simple inline toggler) -->
+<div id="manual-shift-modal" style="display: none; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+    <h4 style="font-size: 1rem; font-weight: 700;">Record Past Completed Shift (Manual Timesheet)</h4>
+    <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('manual-shift-modal').style.display='none'">Close</button>
+  </div>
+  <form action="{{ url_for('worker_manual_entry') }}" method="POST">
+    <input type="hidden" name="worker_id" value="{{ current_worker.id }}">
+    <input type="hidden" name="worker_code" value="{{ current_worker.worker_code }}">
+    <input type="hidden" name="industry" value="{{ industry_filter }}">
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="shift_date">Shift Date *</label>
+        <input type="date" name="shift_date" id="shift_date" value="{{ now_str[:10] }}" required>
+      </div>
+      <div class="form-group">
+        <label for="hours_worked">Total Hours Worked *</label>
+        <input type="number" step="0.25" min="0.5" max="24" name="hours_worked" id="hours_worked" placeholder="e.g. 8.5" required>
+      </div>
+      <div class="form-group">
+        <label for="shift_notes">Shift Description / Work Area</label>
+        <input type="text" name="notes" id="shift_notes" placeholder="e.g. Scaffolding inspection or Hallway buffing">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Save Shift to Log</button>
+  </form>
+</div>
+
+<!-- 2-Column: Skill Passport & Worker Feedback -->
+<div class="grid-2">
+
+  <!-- Verified Skill Passport -->
+  <div class="card">
+    <div class="card-header">
+      <h3>
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #4f46e5;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+        </svg>
+        Worker Skill & Training Passport
+      </h3>
+      <span class="badge badge-info">Verified Qualifications</span>
+    </div>
+    <div class="card-body">
+      <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">
+        Portable credential passport eliminating lost physical records and proving safety compliance.
+      </p>
+
+      {% if skills_records %}
+        <div class="skills-grid">
+          {% for sk in skills_records %}
+            <div class="skill-card">
+              <div>
+                <div class="skill-title">{{ sk.skill_name }}</div>
+                <div class="skill-meta">{{ sk.certification }} &bull; {{ sk.issuing_body }}</div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.775rem;">
+                <span style="color: #64748b;">Valid until: <strong>{{ sk.expiry_date }}</strong></span>
+                <span class="badge {% if sk.status == 'Valid' %}badge-success{% elif sk.status == 'Expiring Soon' %}badge-warning{% else %}badge-danger{% endif %}">
+                  {{ sk.status }}
+                </span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="color: #94a3b8; font-size: 0.875rem;">No verified training records found for this profile.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Retaliation-Free Anonymous Worker Voice -->
+  <div class="card">
+    <div class="card-header">
+      <h3>
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #8b5cf6;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+        Worker Feedback & Scheduling Voice
+      </h3>
+      <span class="badge badge-anonymous">Confidential</span>
+    </div>
+    <div class="card-body">
+      <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">
+        Share honest thoughts about shift fatigue, break adequacy, or management communication. Identity is never displayed.
+      </p>
+
+      <form action="{{ url_for('submit_feedback') }}" method="POST">
+        <input type="hidden" name="worker_id" value="{{ current_worker.id }}">
+        <input type="hidden" name="worker_code" value="{{ current_worker.worker_code }}">
+        <input type="hidden" name="industry" value="{{ industry_filter }}">
+
+        <div class="form-group">
+          <label for="feedback_category">Feedback Category</label>
+          <select name="category" id="feedback_category">
+            <option value="Work Hours & Fatigue">Work Hours & Fatigue</option>
+            <option value="Pay Transparency">Pay Transparency & Overtime Accuracy</option>
+            <option value="Workplace Climate & Respect">Workplace Climate & Respect</option>
+            <option value="Safety Equipment">Safety Equipment & Protective Gear</option>
+            <option value="General Suggestion">General Suggestion</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="feedback_text">Your Anonymous Feedback *</label>
+          <textarea name="feedback_text" id="feedback_text" placeholder="Share your experience honestly. This will be posted to the leadership dashboard with zero identifying information." required></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-outline" style="width: 100%;">
+          Submit Anonymous Feedback
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

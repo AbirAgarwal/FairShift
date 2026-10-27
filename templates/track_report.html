@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Track Hazard Report — FairShift{% endblock %}
+
+{% block content %}
+<div class="fairness-banner" style="border-left-color: #e11d48;">
+  <div>
+    <div class="fairness-title">
+      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+      </svg>
+      Safety Hazard Resolution Tracker
+    </div>
+    <div class="fairness-desc">
+      Public and worker tracking portal. Verify the status and corrective actions for reported site hazards.
+    </div>
+  </div>
+  <div>
+    <span class="badge badge-anonymous" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">
+      🛡️ Retaliation-Proof Lookup
+    </span>
+  </div>
+</div>
+
+<!-- Search Input Card -->
+<div class="card" style="max-width: 760px; margin: 0 auto 2rem auto;">
+  <div class="card-header">
+    <h3>
+      <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #3b82f6;">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      Enter Hazard Reference Number
+    </h3>
+  </div>
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('track_report') }}">
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <input type="text" name="ref" id="ref" value="{{ query_ref or '' }}" placeholder="e.g. HAZ-CON-8841 or HAZ-COL-4011" style="flex: 1; min-width: 240px; font-size: 1rem; padding: 0.75rem;" required>
+        <button type="submit" class="btn btn-primary">
+          Check Ticket Status
+        </button>
+      </div>
+    </form>
+
+    <!-- Quick Demo Links for Judges -->
+    <div style="margin-top: 1rem; font-size: 0.85rem; color: #64748b;">
+      <span>Try demo tickets:</span>
+      <a href="{{ url_for('track_report', reference_no='HAZ-CON-8841') }}" class="ref-code" style="margin-left: 0.35rem;">HAZ-CON-8841</a> (Scaffold - Critical)
+      <a href="{{ url_for('track_report', reference_no='HAZ-COL-4011') }}" class="ref-code" style="margin-left: 0.35rem;">HAZ-COL-4011</a> (Fume Hood - High)
+      <a href="{{ url_for('track_report', reference_no='HAZ-CON-8620') }}" class="ref-code" style="margin-left: 0.35rem;">HAZ-CON-8620</a> (Resolved)
+    </div>
+  </div>
+</div>
+
+{% if query_ref %}
+  {% if report %}
+    <!-- Found Report Details Card -->
+    <div class="card" style="max-width: 840px; margin: 0 auto; box-shadow: var(--shadow-md);">
+      <div class="card-header" style="background-color: #f8fafc;">
+        <div>
+          <span class="ref-code" style="font-size: 1.1rem;">{{ report.reference_no }}</span>
+          <span class="badge {% if report.industry == 'Construction' %}badge-construction{% else %}badge-college{% endif %}" style="margin-left: 0.5rem;">
+            {{ report.industry }}
+          </span>
+        </div>
+        <div>
+          <span class="badge {% if report.status == 'Resolved' %}badge-success{% elif report.status == 'Under Review' %}badge-warning{% else %}badge-info{% endif %}" style="font-size: 0.9rem; padding: 0.35rem 0.85rem;">
+            ● Status: {{ report.status }}
+          </span>
+        </div>
+      </div>
+
+      <div class="card-body">
+        
+        <!-- Status Progress Timeline Bar -->
+        <div style="display: flex; justify-content: space-between; position: relative; margin: 1.5rem 0 2rem 0; padding: 0 1rem;">
+          <div style="position: absolute; top: 14px; left: 10%; right: 10%; height: 4px; background: #e2e8f0; z-index: 1;"></div>
+          
+          <!-- Step 1: Open -->
+          <div style="text-align: center; position: relative; z-index: 2;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #3b82f6; color: #fff; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem;">
+              ✓
+            </div>
+            <div style="font-size: 0.8rem; font-weight: 600; margin-top: 0.4rem; color: #1e293b;">1. Filed / Open</div>
+            <div style="font-size: 0.725rem; color: #64748b;">{{ report.created_at[:10] }}</div>
+          </div>
+
+          <!-- Step 2: Under Review -->
+          <div style="text-align: center; position: relative; z-index: 2;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: {% if report.status in ('Under Review', 'Resolved') %}#f59e0b{% else %}#e2e8f0{% endif %}; color: {% if report.status in ('Under Review', 'Resolved') %}#fff{% else %}#94a3b8{% endif %}; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem;">
+              {% if report.status in ('Under Review', 'Resolved') %}✓{% else %}2{% endif %}
+            </div>
+            <div style="font-size: 0.8rem; font-weight: 600; margin-top: 0.4rem; color: #1e293b;">2. Under Review</div>
+            <div style="font-size: 0.725rem; color: #64748b;">Safety Inspection</div>
+          </div>
+
+          <!-- Step 3: Resolved -->
+          <div style="text-align: center; position: relative; z-index: 2;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: {% if report.status == 'Resolved' %}#10b981{% else %}#e2e8f0{% endif %}; color: {% if report.status == 'Resolved' %}#fff{% else %}#94a3b8{% endif %}; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem;">
+              {% if report.status == 'Resolved' %}✓{% else %}3{% endif %}
+            </div>
+            <div style="font-size: 0.8rem; font-weight: 600; margin-top: 0.4rem; color: #1e293b;">3. Resolved</div>
+            <div style="font-size: 0.725rem; color: #64748b;">Corrective Action</div>
+          </div>
+        </div>
+
+        <!-- Details Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; background: #f8fafc; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+          <div>
+            <label style="color: #64748b; font-size: 0.75rem;">Hazard Category</label>
+            <strong style="color: #1e293b;">{{ report.category }}</strong>
+          </div>
+          <div>
+            <label style="color: #64748b; font-size: 0.75rem;">Severity Level</label>
+            <span class="badge {% if report.severity == 'Critical' %}badge-critical{% elif report.severity == 'High' %}badge-danger{% elif report.severity == 'Medium' %}badge-warning{% else %}badge-info{% endif %}">
+              {{ report.severity }}
+            </span>
+          </div>
+          <div>
+            <label style="color: #64748b; font-size: 0.75rem;">Date Reported</label>
+            <strong>{{ report.created_at | datetime_format }}</strong>
+          </div>
+          <div>
+            <label style="color: #64748b; font-size: 0.75rem;">Reporter Privacy Protection</label>
+            {% if report.is_anonymous %}
+              <span class="badge badge-anonymous">🔒 100% Anonymous</span>
+            {% else %}
+              <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">{{ report.full_name or 'Verified Staff Member' }}</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <label style="font-size: 0.825rem; color: #64748b;">Reported Location</label>
+          <div style="font-weight: 600; font-size: 1rem; color: #1e293b;">
+            📍 {{ report.location }}
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <label style="font-size: 0.825rem; color: #64748b;">Hazard Condition Description</label>
+          <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; font-size: 0.925rem; color: #334155; line-height: 1.5;">
+            {{ report.description }}
+          </div>
+        </div>
+
+        <!-- Administrative Corrective Action Notes -->
+        <div style="background-color: {% if report.status == 'Resolved' %}#ecfdf5{% else %}#eff6ff{% endif %}; border-left: 4px solid {% if report.status == 'Resolved' %}#10b981{% else %}#3b82f6{% endif %}; padding: 1rem 1.25rem; border-radius: var(--radius-sm);">
+          <div style="font-weight: 700; font-size: 0.9rem; color: {% if report.status == 'Resolved' %}#065f46{% else %}#1e40af{% endif %}; margin-bottom: 0.25rem;">
+            Management Mitigation & Action Taken:
+          </div>
+          <div style="font-size: 0.9rem; color: #334155;">
+            {{ report.admin_notes or 'Intake review completed. Site safety personnel have been dispatched to investigate.' }}
+          </div>
+          <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">
+            Last Updated: {{ report.updated_at | datetime_format }}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  {% else %}
+    <!-- Not Found Notice -->
+    <div class="card" style="max-width: 600px; margin: 0 auto; text-align: center; padding: 2.5rem;">
+      <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🔍</div>
+      <h3>Report Reference Not Found</h3>
+      <p style="color: #64748b; font-size: 0.9rem; margin: 0.75rem 0 1.25rem 0;">
+        No incident was found matching reference <strong>"{{ query_ref }}"</strong>. Please verify the code or check with your site safety supervisor.
+      </p>
+      <a href="{{ url_for('track_report') }}" class="btn btn-outline btn-sm">Try Another Code</a>
+    </div>
+  {% endif %}
+{% endif %}
+
+{% endblock %}
